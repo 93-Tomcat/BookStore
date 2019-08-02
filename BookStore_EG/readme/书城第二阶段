@@ -1,0 +1,77 @@
+	1.拷贝1阶段项目改为2阶段
+		-需要修改项目名
+		-修改项目的配置信息中的项目名：项目中的上下文路径
+			对项目名右键-properties-web project setting 修改上下文路径和项目名一样
+			
+	2.学习了js技术
+		-项目中的所有页面都是html的，不能使用java代码和显示变量的值
+		-登陆注册失败后没有给用户提示，无法去复用同一个页面
+		-注册失败后用户的注册信息都没有了：用户体验感极差
+		-多个页面中有重复的内容：
+			用户使用的：除了manager文件夹内的页面都是用户使用，右上角的登陆栏状态
+			管理员使用的：刮玻璃元访问的manager文件夹下的也没面右上角的状态栏
+			所有的页面都有的：css样式文件    jquery文件   base标签
+		一个Servlet现在只能处理一个请求
+		
+	实现：
+		1.将html页面都改成jsp页面
+			>html页面和jsp的区别 jsp的区别第一行多了page指令
+			方式一：创建一个同名的jsp，将对应的html页面内容拷贝过去
+			方式二：在html页面中第一行添加page指令，修改文件后缀为jsp
+			
+		2、将页面中共有的部分进行提取
+		> 在WEB-INF下创建 include文件夹，用来存放提取的jsp页面
+			- WEB-INF下的资源服务器可以访问
+				转发、include静态包含
+		所有页面共有的：
+			提取到base.jsp页面中 ，然后通过include静态包含到所有的页面中
+			
+		用户访问的页面共有的部分：登录状态栏	
+			提取到WEB-INF/include/user_header.jsp
+		管理员访问的manager文件夹下页面的共有部分：右上角状态栏	
+			提取到WEB-INF/include/manager_header.jsp
+		3、修改页面所有的超链接html后缀为 jsp
+			修改所有的相对路径参考base标签
+			修改manager_header.jsp页面中的 所有的相对路径 参考base标签中的路径
+			LoginServlet和RegistServlet中转发或重定向的地址 后缀需要改为jsp	
+	 > 拷贝页面可能出现的问题：
+	 		如果Servlet的名字和我的不一致，需要在login.jsp和regist.jsp页面中的表单提交的action地址修改为和自己的servlet一样的名字
+	 		base.jsp中的base标签的项目名需要和自己的一样	
+ 	
+	 	--------------------------------------------------
+	 	4、base页面的地址写死，项目名和  端口号以及服务器ip地址可能会变化
+	 		可以在接受到请求时根据请求报文动态拼接base标签的url地址
+	 		<base href="<%=request.getScheme() %>://<%= request.getServerName() %>:<%=request.getServerPort() %><%=request.getContextPath() %>/"/>
+	 		
+	 	5、登录失败，在转发后的页面中给用户错误提示
+	 		用户从Login.jsp页面提交登录请求交给LoginServlet处理
+	 		如果登录失败则在LoginServlet中向request域中设置错误消息
+	 		转发到login.jsp页面获取request域中共享的错误消息并显示让用户继续登录
+	 	
+	 	6、注册失败，在转发后的页面中给用户错误提示
+	 	
+	 		用户从regist.jsp页面提交注册请求交给RegistServlet处理
+	 		如果注册失败则在RegistServlet中向request域中设置错误消息
+	 		转发到regist.jsp页面获取request域中共享的错误消息并显示让用户继续注册
+	 	
+	 	7、注册失败后  表单数据的回显
+	 		用户从regist.jsp页面提交请求	给RegistServlet处理(请求报文会被封装为请求对象)
+	 		判断如果注册失败
+	 		再转发到regist.jsp页面(request对象会通过方法传给regist.jsp页面)给用户响应(希望将用户注册失败的信息获取到再设置到对应的表单项中显示)
+				在转发之后的页面中也可以使用request对象获取请求报文的数据(参数)，将参数设置到表单项中即可回显
+				
+		8.现在的Servlet一个制定处理一个单一的请求，浪费
+			优化：使用一个Servlet能够处理一类请求
+				UserServlet：出路和用户相关的请求
+					doGet（）
+					
+					login（）处理登陆请求
+					regist（）处理注册请求
+					logout（）处理注销请求
+					updatePwd（）修改密码的请求
+				
+				
+		
+						
+						
+						

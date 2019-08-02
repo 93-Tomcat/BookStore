@@ -1,0 +1,116 @@
+
+1、根据上午的分析，创建描述分页信息的类  Page
+2、分页的业务流程
+	在manager.jsp页面中点击图书管理超链接时应该向BookManagerServlet提交查询分页数据的请求
+	> BookManagerServlet.findPage:处理查询分页数据的请求
+		- 获取管理员要查询的分页的页码 pageNumber;
+		- 在代码中设置size，每页显示的记录条数；
+		- 创建Page<Book>对象，并将pageNumber(将字符串转为int类型)和size设置给page对象
+		- 调用BookDao的方法，可以使用page对象的index和size属性值查询到分页需要的图书集合
+			select * from bs_book limit index,size;
+			将分页集合data设置给page对象
+		- 调用BookDao的方法，查询bs_book表的记录总条数totalCount，设置给page对象
+		- page对象查询完毕
+		- 将page对象存到request域中
+		- 再转发到book_manager.jsp页面 获取page对象 显示page的属性值到页面中
+	> BookDao+BookDaoImpl 提供 getPage方法 处理查询分页数据的方法
+3、BookDao
+	Page<Book>  getPage(Page<Book> page);传入参数的page对象是Servlet中只设置了pageNumber和size的page对象
+		- 返回值的page对象 设置了所有属性值的page对象
+4、BookManagerServlet中提供 findPage方法处理管理员查询分页的请求
+5、修改book_manager.jsp页面判断显示  page对象的属性值和图书集合
+   修改manager.jsp页面右上角的 图书管理超链接，点击访问BookManagerServlet?type=findPage&pageNumber=1
+   
+6、分页导航栏
+	通过遍历  1到 totalPage  实现 页码导航栏
+	上一页和下一页 可能会导致页码超过范围，在Page类中使用封装性进行了限制   
+ 	高亮显示当前页
+ 	输入页码点击跳转功能
+ 	> 分页导航栏优化：
+ 		如果页码过多，全部显示 用户体验差
+ 		模仿百度之类的网站:一次性只显示指定数量的页码 5个
+ 			[1] 2 3 4 5
+ 			1 [2] 3 4 5
+ 			1 2 [3] 4 5
+ 			2 3 [4] 5 6
+ 			3 4 [5] 6 7
+ 			修改bookmanager.jsp页面中遍历页码的begin和end的值
+ 			页码规律：
+ 				总页码<5
+ 					begin =1 , end=总页码 totalPage
+ 				总页码>=5
+ 					如果当前页码<=3 ,begin = 1 , end = 5
+ 					如果当前页码>3 ， begin = 当前页码 pageNumber-2 , end = 当前页码pageNumber+2
+ 						- 如果当前页码+2 超过总页码的范围 会导致页码中显示的页码超标
+ 							每次产生end值我们可以判断 end不能超过总页码
+ 		
+ 
+ 7、修改之后跳转回修改之前的页面
+ 	当点击book_manager.jsp页面中的修改超链接时，请求提交给BookManagerServlet.findBook方法
+ 		- 查询图书存到域中  再转发到book_edit.jsp 给用户显示要修改的图书信息
+ 	用户在book_edit.jsp页面中修改图书之后然后点击提交 请求提交给BookManagerServlet.updateBook方法处理
+ 		- 修改图书，再重定向到首页
+ 			修改： 修改图书之后 重定向到 点击修改超链接的那个页面
+ 				步骤：
+ 					在findBook方法中 获取请求头中的referer修改之前的地址： 将获取的地址存到request域中
+ 					转发到book_edit.jsp：将域中的数据作为隐藏域设置到表单中 
+ 					当在book_edit.jsp点击提交按钮时：表单会收集表单项的数据提交给BookManagerServlet.updateBook
+ 					BookManagerServlet.updateBook处理了请求后  再获取提交的请求参数(修改之前的页面地址)重定向
+ 		在javaweb项目中不同资源内共享数据的方式：
+ 			1、url地址后通过get方式拼接参数 <a href="url?name=value">
+ 			2、表单项+隐藏域
+ 			3、域对象：可以在服务器内部 执行代码的过程中  在servlet和jsp之间共享数据
+ 			
+ 
+ 8、添加后跳转到最后一页
+ 	提交添加请求，BookManagerServlet处理后，先查询总页码(查询图书记录总条数/size)，重定向到总页码的那一页
+ 
+ 
+ 
+ 9、完成用户端  首页 分页信息的查询显示
+ 	当访问首页时，请求应该提交给BookClientServlet.findPage处理
+ 	- 获取页码pageNumber，  设置size= 4
+ 	- 调用BookService的业务方法 findPage(String pageNumber , int size)查询分页数据 
+ 	- 存到域中
+ 	- 转发到 index.jsp页面显示分页数据
+ 
+ 10、解决访问首页 必须先访问BookClientServlet查询数据的问题
+ 	- 修改首页 当用户访问时直接将请求转发给BookClientServlet查询数据，转发到List页面去显示分页数据
+ 	- 再创建一个list页面用来显示  用户端的分页数据
+ 
+ 11、完成按价格查询分页数据的功能
+ 	用户在list.jsp页面中点击 查询 按钮，收集最低和最高价格 提交给服务器查询价格区间的分页数据显示在页面中
+ 	
+ 	表现层： 作用：获取请求参数、调用业务层处理业务、给用户响应
+ 		BookClientServlet.findPageByPrice():处理根据价格区间查询分页数据的请求
+ 			- pageNumber： 页码
+ 			- int size = 4： 每页显示的记录条数
+ 			- String minPrice; 最低价格
+ 			- String maxPrice; 最高 价格
+ 			- 调用业务层方法处理业务查询到价格区间的分页对象
+ 			- 存到域中
+ 			- 转发到list.jsp显示按价格查询到的分页数据
+ 	业务层：
+ 		Page<Book> BookServiceImpl.findPageByPrice(String pageNumber , String minPrice , String maxPrice , int size);
+ 			- 创建page对象：
+ 				将pageNUmber和size设置给page对象
+ 			- 将字符串类型的参数 类型转换，防止用户提交非法参数
+ 			- 调用dao层的方法查询和数据库相关的数据
+ 	数据持久化层： 
+ 		Page<Book> BookDaoImpl.getPageByPrice(Page page , double min , double max);
+ 			- 查询价格区间的图书的总记录条数： select count(1) from bs_book where  price BETWEEN min AND max;
+ 				设置给page对象
+ 			- 查询价格区间的指定页码的分页的图书集合：select * from bs_book where price BETWEEN min AND max limint index,size;
+ 				设置给page对象
+ 	修改list.jsp页面：点击按价格查询  提交请求给  BookClientServlet.findPageByPrice()
+ 	list.jsp页面的分页导航栏 需要被  按价格查询和 普通分页查询复用
+ 		- 分页导航栏的超链接地址需要动态变化
+ 	
+ 	
+ 	
+ 	
+ 		
+
+ 
+ 
+ 

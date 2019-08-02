@@ -1,0 +1,150 @@
+由于jsp表达式和脚本片段拼接过多会造成页面可读性差，jsp2.0后推荐使用EL替代jsp表达式，使用JSTL替代jsp脚本片段
+
+
+	1、EL表达式替代jsp表达式
+		WEB-INF/include/base.jsp:  动态拼接url地址
+		login.jsp页面获取错误消息显示
+		regist.jsp页面获取错误消息以及 表单数据回显
+	
+	2、使用JSTL替代jsp脚本片段
+	
+	
+	3、使用EL+jstl完成数据的遍历显示
+		分析：
+			首页中点击后台管理超链接跳转到manager.jsp
+			在manager.jsp页面中点击图书管理超链接希望显示所有的图书列表
+			当点击图书管理超链接时 请求应该提交给服务器BookManagerServlet(处理管理员所有的图书相关请求)
+					BookManagerServlet：提供查询所有图书集合的方法 findAllBooks();
+						- 调用dao层查询所有图书集合
+						- 将图书集合存到request域中共享
+						- 转发到显示图书集合给管理员查看的页面/pages/manager/book_manager.jsp
+						- /pages/manager/book_manager.jsp使用EL+jstl遍历显示图书集合
+					BookDao： 接口约束对图书表的操作
+						- BookDaoImpl: List<Book> getBookList();
+					bean： Book类对应bs_book表
+					数据库：
+						- bs_book表： 保存图书数据
+		开发步骤
+			1、创建bs_book表
+				数据库中考虑效率问题，在保存图片时，一般会将图片保存到文件服务器中，然后我们将图片的url访问地址保存到数据库
+				id int(9) primary key auto_increment
+				img_path varchar(100) ,
+				title varchar(100),
+				author varhcar(100),
+				price double(11,2),
+				sales int(9),
+				stock int(9)
+				
+				CREATE TABLE bs_book(
+					 id INT(9) PRIMARY KEY AUTO_INCREMENT,
+					 img_path VARCHAR(100) ,
+					 author VARCHAR(100) NOT NULL,
+					 title VARCHAR(100) NOT NULL,
+					 price DOUBLE(11,2) NOT NULL,
+					 sales INT(9) NOT NULL,
+					 stock INT(9) NOT NULL
+					
+					);
+			2、创建Book类
+			
+			3、创建BookDao接口+实现类
+				根据book_manager.jsp页面中的操作需求，应该提供以下几个对图书表的操作方法
+				- List<Book> getBookList();查询所有图书
+				- int deleteBookById(String bookId);删除指定id的图书
+						由于此方法使用的参数是用户从浏览器中提交过来的，在servlet中获取时默认就是字符串类型
+				- int saveBook(Book newbook); 保存图书
+				- updateBookById(); 根据id修改指定图书
+				- Book getBookById(String bookId); 查询指定id的图书信息
+			4、测试BookDaoImpl的方法
+			
+			5、创建BookManagerServlet提供查询所有图书的方法处理查询请求
+			
+			6、book_manager.jsp页面获取图书集合遍历显示
+			
+			7、完成查询显示功能： 修改manager/manager.jsp页面右上角 图书管理超链接，点击时提交请求给BookManagerServlet?type=findAllBooks
+			
+			8、完成删除指定图书的功能：
+					在book_manager.jsp页面中点击 删除超链接  希望提交请求给服务器 删除 超链接所在行的图书
+					BookManagerServlet中提供 deleteBook()方法处理删除图书的请求
+						- 获取请求参数：要删除的图书id
+						- 调用BookDaoImpl的 int deleteBookById(id);
+						- 给用户响应：跳转回删除之前的页面给用户显示所有的图书列表
+					修改book_manager.jsp页面中的删除超链接： 点击时提交请求给BookManagerServlet?type=deleteBook&bookId=xx
+					
+			9、完成添加图书的功能：
+				先复制book_edit.jsp页面修改为book_add.jsp，然后修改 book_manager.jsp页面的  添加超链接，当点击时跳转 book_add.jsp页面
+				
+					分析：当book_add.jsp页面中管理员输出完成要添加的图书数据后，点击提交按钮，数据应该交给服务器BookManagerServlet?type=addBook存到数据库(BookDaoImpl.saveBook)
+						根据dao的返回值，跳转到book_manager.jsp页面 显示添加后的图书列表给管理员查看
+					BookManagerServlet
+						- 提供 addBook()处理管理员的添加图书请求
+							> 获取请求参数
+							> 封装为Book对象
+							> 调用BookDaoImpl的saveBook(Book book)存到数据库
+							> 重定向到图书列表显示页面
+					修改book_add.jsp页面的表单：
+						action地址：修改为 BookManagerServlet的addBook方法
+						表单项的name属性值 需要和 Book类的属性名保持一致
+						通过隐藏域 在表单中给图书设置了默认的封面地址
+					
+					post请求乱码问题：
+						book_add页面收集了图书数据后使用post方式提交，BookManagerServlet获取乱码
+						- 原因： servlet在获取参数时，从请求报文的请求体中获取，服务器默认使用ISO8859-1获取
+							解决：在BaseServlet的doGet方法中使用request对象之前，告诉服务器使用UTF-8的编码解析请求体
+					
+			10、完成修改功能	
+					10.1 在book_manager.jsp页面中点击修改超链接时应该将要修改的图书信息
+						携带到book_eidt.jsp页面中显示
+						实现方式1：将要修改的图书数据拼接在超链接地址后提交给book_edit.jsp页面获取使用
+						
+						
+						实现方式2：
+							当在book_manager.jsp点击修改时，将要修改的图书id提交给服务器BookManagerServlet.findBook()处理查询图书的请求
+							再将图书共享到request域中，然后转发到book_edit.jsp页面获取要修改的图书数据进行显示
+						步骤：
+							1、BookManagerServlet创建findBook 处理查询指定图书的请求
+								获取图书id
+								调用BookDao查询图书
+								存到域中
+								转发到book_edit.jsp
+							2、在Book_edit.jsp页面中获取图书数据进行显示
+							3、修改book_manager.jsp修改超链接，点击提交给BookManagerServlet.findBook
+					10.2 当在book_edit.jsp页面中点击提交时应该将请求交给服务器的BookManagerServlet
+						接受请求，调用BookDaoImpl修改图书
+						步骤：
+							1、BooKDao提供修改指定图书的方法
+								无法判断用户修改了那些数据，提交时无论修改后的还是没有修改的数据都提交给服务器
+								全部重新设置，如果修改了设置的值就是修改后的
+								int updateBookById(Book oldBook);
+									- 参数：  用户修改后提交的图书参数封装的book对象，id没有改，其他的值都可能改变了
+							2、BookManagerServlet创建updateBook 处理修改图书的请求
+								获取要修改的图书参数
+								调用BookDao的方法修改图书
+								给用户响应，重定向到图书列表页面
+							3、修改book_edit.jsp页面
+								表单的action地址，点击时提交请求给 BookManagerServlet type=updateBook
+								
+								
+								
+项目问题：
+	1、用户体验差：如果图书过多，用户一次性全部查询得到，查看比较麻烦	
+	2、如果图书多，服务器的处理效率差
+	开发中不推荐使用不带条件的查询语句，如果没有条件使用分页查询	
+	技术基础：
+		sql语句： 	SELECT * FROM bs_book LIMIT index, size;
+			index 查询的起始索引值
+			size 记录条数
+		流程：用户以后再页面中点击分页导航栏页码时会提交页码给服务器，在服务器中可以接收	
+			pageNumer
+			服务器中直接设置每页显示指定记录的条数
+			size = 4
+			
+		size	pageNumber    index
+		4(5)		1			0
+		4(5)		2			4(5)
+		4(5)		3			8(10)
+			
+			index = (pageNumber-1)*size	
+			
+		如果需要分页显示，需要显示的内容比之前显示所有图书集合 多了很多内容	
+			

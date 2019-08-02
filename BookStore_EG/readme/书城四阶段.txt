@@ -1,0 +1,229 @@
+在项目中使用Session对象共享数据
+
+	1、保持登录状态+注销
+		当用户访问当前项目时从登录页面提交登录请求 在UserServlet的login方法中判断如果登录成功
+		将user对象存到session域中
+		本次会话的其他请求只要判断session域中有user对象就代表登录成功
+		如果没有代表没有登录
+	
+		> 修改UserServlet:在login方法中当登录成功将登录查询到的user对象存到session中
+		> 所有的用户访问的页面需要使用session中共享的user，切换显示已登录还是未登录状态栏
+	2、注册验证码[重要]
+		> 当用户访问regist.jsp页面时在页面中可以提交注册请求：为了防止恶意攻击，防止表单重复提交，可以使用验证码图片
+			- 当用户访问注册页面时，在页面中执行代码
+				创建一个验证码字符串
+				将字符串存到session中一份
+				将验证码字符串转为验证码图片
+				将图片设置到显示验证码图片的img标签内
+				
+			- 当用户提交注册请求时，处理注册请求的Servlet
+				用户会先根据验证码图片输入验证码字符串提交请求
+				获取请求参数用户输入的验证码字符串
+				获取session中存储的字符串
+				比较两个字符串是否一致
+				如果一样，移除服务器保存在session中，并处理注册请求
+				如果不一样，不处理注册请求并转发到注册页面给用户错误提示
+					
+			一般验证码图片和以上的大部分步骤都由第三方工具帮助我们实现
+			kaptcha.jar:
+				由谷歌公司提供的验证码生成工具
+				使用步骤：
+					1、导入kaptcha jar包
+					2、kaptcha提供了一个KaptchaServlet可以处理请求，返回一张验证码图片
+						该Servlet处理请求时
+							会自动生成验证码字符串然后存到session中
+							再根据字符串创建一张验证码图片设置到响应体中返回
+						需要在当前项目的web.xml中配置该Servlet，才可以访问,设置虚拟访问路径
+							http://localhost:8080/BookStore_EG04/code.jpg
+					3、在regist.jsp页面中的 显示验证码图片的img标签中 src属性值中访问code.jpg可以得到验证码图片并显示
+					4、生成验证码字符串的配置可以在web.xml中配置KaptchaServlet时通过initparam提供
+					5、用户在页面中输入验证码字符串后会提交给服务器
+						服务器中验证验证码参数是否正确或重复提交	
+					6、给验证码图片绑定单击事件，当点击时刷新验证码图片
+		
+		>  目的：防止表单重复提交
+			2.1 注册成功后 如果使用了转发(一次请求，地址栏地址和打开的页面不一致)，地址栏地址不变，用户刷新浏览器会向服务器发起重复请求，提交重复的数据造成表单重复提交
+				解决：注册成功后使用重定向(打开的页面和url地址栏地址始终一致)到成功页面
+			2.2 如果有网络延迟，浏览器提交注册请求时，服务器响应回来之前，页面中可以多次点击提交按钮，造成表单数据重复提交
+				问题：提交按钮可以被一直点击
+				解决：按钮设置设置智能点击一次(js)
+			2.3 用户注册成功后如果点击浏览器的回退按钮，浏览器使用缓存打开缓存页面，用户可以直接点击提交，又造成表单重复提交
+				原因：之前没有在服务器中检查请求是否是重复提交的
+				看电影流程：
+					买电影票
+					凭电影票和票根入场，管理员检查票和票根，如果一致可以进入观看，撕毁票根
+					如果不一致，不让入场
+					如果只凭没有票根的电影票入场，不让进入
+				当用户第一次访问注册页面时，服务器在jsp页面中编写代码，创建一个唯一字符串
+					- 在服务器内存中备份一份
+					- 并设置到页面中交给浏览器一份
+				当用户第一次从注册页面提交注册请求时，需要将唯一字符串提交给服务器
+					- 服务器处理时，先检查唯一字符串是否正确： 获取服务器保存的和浏览器提交的请求参数进行对比
+						如果一样，可以注册，并销毁服务器中保存的使用过的唯一字符串
+						如果不一样，就是重复请求
+				用户再点击回退按钮使用缓存提交携带的仍是之前使用过的唯一字符串，服务器中没有与之对应的唯一字符串
+				多次请求需要使用同一个数据，所以需要使用session域共享数据
+				解决：
+					1、在regist.jsp页面中编写java代码：
+						> 创建唯一字符串: UUID
+						> 在session域中保存一份(服务器)
+						> 将字符串作为隐藏域添加到注册表单中
+					2、当用户提交注册请求时：
+						> 处理请求的Servlet中检查请求是否为重复提交的
+						- 获取请求参数token
+						-获取session中保存的token
+						- 进行对比，如果一样：可以处理注册请求并且移除session中使用过的token
+						- 如果不一样(服务器上次已经删除session中的token)，给用户错误提示，不处理注册请求
+						
+	3、购物车
+		实现方式：
+			3.1 使用Cookie实现：过时
+			3.2 使用Session实现：    
+				将浏览器一次会话的 和购物相关的信息存在服务器session对象中
+					问题： 浏览器关闭后上次会话中的购物车信息没有了，不能持久化
+					优点： 用户未登录也可以使用购物车、由于数据保存在session中(内存)，处理速度快
+			3.3 使用数据库实现：
+					优点：数据被持久化了，通过经典的三层架构的模式进行相关开发
+					缺点：使用数据库 必须保证用户登录后才能保存、操作速度慢
+
+		流程：
+			当用户在页面中第一次点击加入购物车按钮时，希望服务器将购物信息保存到session中
+			当用户在页面中点击购物车超链接时，希望查询到session中保存的购物信息
+			当用户在购物车页面中点击删除时 希望删除session中的购物信息
+			为了方便对数据的增删改查的操作以及数据的传递使用，可以将有关系的数据通过类描述，具体的一套数据就是一个对象
+
+	4、完成结账功能
+		在cart.jsp页面点击去结账超链接提交结账请求
+		
+		
+		表现层：Servlet
+			OrderServlet:处理用户订单相关的请求
+				> checkout():  处理用户的结账请求
+					1、判断用户是否登录，如果未登录跳转到登录页面提示登录
+					2、如果已登录，继续结账操作
+						> 准备结账的参数：获取session域中的购物车对象
+									获取用户对象信息
+						> 调用service的业务方法处理将购物信息转为订单信息的业务： 
+							得到返回的订单id
+							
+					3、给用户响应：
+						将订单id存到域中
+						跳转到/pages/cart/checkout.jsp告诉用户结账成功
+			
+		业务层：Service
+			OrderService: 处理用户订单相关的业务
+				> String createOrder(Cart cart , User user);处理将购物车和用户转为订单的业务方法
+					- 创建一个订单对象
+					- 根据订单对象需要的数据来提供参数设置给它
+						提供id： 模仿UUID的生成规则创建一个唯一字符串
+								时间戳+ token +用户id
+						提供订单创建的时间： 当前时间  new Date();
+						提供订单的默认状态：0 未发货
+						提供订单的商品总数量: cart.getTotalCount();
+						提供订单的商品总金额: cart.getTotalAmount();
+						提供订单属于的用户的id： user.getId();
+						
+						//遍历购物车的购物项集合，将集合中的一个购物项转为一个个的订单项保存
+						
+						//修改图书的销量库存
+						
+						//清空购物车
+						
+					- 调用dao层将订单对象保存到数据库中持久化
+					- 如果保存成功，返回生成的订单id
+		持久化层：Dao
+			OrderDao:处理订单相关的数据库的操作
+				> int saveOrder(Order order);
+			OrderDaoImpl:
+				> int saveOrderItem(OrderItem orderItem);		
+		实体类：
+			Order: 描述bs_order表信息的 订单类     和一个购物车对应
+				String orderId;
+				Date createTime;
+				int state; // 0 表示未发货 ， 1表示已发货,   2表示交易完成 
+				int totalCount;//购物项商品总数量
+				double totalAmount;//购物项商品总金额
+				Integer userId;//表示当前订单属于哪个用户   外键
+			OrderItem:	描述bs_orderitem表信息的订单项类   和购物车的一个购物项对应
+				Integer id;
+				String title;//描述订单项对应的图书信息
+				String author;
+				String imgPath;
+				double price;
+				int count;
+				double amount;
+				String orderId;//表示当前订单项属于哪个订单  外键
+		数据库表：
+			bs_order: 保存订单信息
+			bs_orderitem: 保存订单项信息
+			CREATE TABLE bs_order(
+			 order_id VARCHAR(100) PRIMARY KEY,# 主键
+			 create_time DATETIME ,
+			 state INT(2),
+			 total_count INT(11),
+			 total_amount DOUBLE(11,2),
+			 user_id INT(10),
+			 FOREIGN KEY(user_id) REFERENCES bs_user(id)
+			);
+			CREATE TABLE bs_orderitem(
+			 id INT(11) PRIMARY KEY AUTO_INCREMENT,
+			 title VARCHAR(100) ,
+			 author VARCHAR(100),
+			 img_path VARCHAR(100),
+			 price DOUBLE(11,2),
+			 `count` INT(11),
+			 amount DOUBLE(11,2),
+			 order_id VARCHAR(100),
+			 FOREIGN KEY(order_id) REFERENCES bs_order(order_id)
+			
+			);
+	表之间的映射关系：  关系型数据库一张表 一般保存 一个单元格一个属性值的数据
+		1对1的关系：  用户对应一个购物车 
+		1对多的关系： 一个部门可以有多个员工， 一个订单可以有多个订单项，一个用户可以有多个订单	
+		多对多的关系：	
+		
+	5、完成用户查询自己订单的功能
+			
+		表现层：
+			OrderServlet
+				findMyOrders(); 处理查询用户订单的请求
+					- 获取用户id： session域中
+					- 调用业务层查询订单集合
+					- 共享到域中
+					-交给页面遍历显示
+				takeGoods();处理用户收货的请求
+					- 获取要确认收货的订单的id   
+						int state = 2;
+					- 调用业务层处理业务
+					
+		业务层：
+			OrderService:
+				List<Order> findMyOrders(int userId); 查询用户订单的业务方法
+				boolean takeGoods(String orderId , int state); 收发货方法
+		dao层：
+			OrderDao:
+				List<Order> getOrdersByUserId(int userId);查询用户的订单数据的方法
+				int updateOrderStateByOrderId(String orderId , int state);
+
+	6、收发货功能
+		本质就是修改订单的state状态值
+			管理员发货：管理员将订单的状态由0改为1
+			用户收货： 用户将订单状态由1改为2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
